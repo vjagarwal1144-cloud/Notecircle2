@@ -41,6 +41,24 @@ jobs:
           test -f "app/src/main/AndroidManifest.xml" || { echo "::error::AndroidManifest.xml missing"; exit 1; }
           echo "Android project structure verified."
 
+      - name: Create CI debug keystore
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -f "debug.keystore" ]; then
+            keytool -genkeypair -v \
+              -keystore debug.keystore \
+              -storepass android \
+              -alias androiddebugkey \
+              -keypass android \
+              -keyalg RSA \
+              -keysize 2048 \
+              -validity 10000 \
+              -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          test -f "debug.keystore"
+          echo "CI debug signing keystore is ready."
+
       # Build and upload the APK before tests so a test-only failure cannot hide a usable APK.
       - name: Assemble Debug APK
         run: gradle :app:assembleDebug --no-daemon --stacktrace
