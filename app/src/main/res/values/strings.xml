@@ -1,0 +1,11 @@
+<resources>
+    <string name="app_name">NoteCircle</string>
+    <string name="app_tagline">Private Notes &amp; Chat for Your Trusted Circle</string>
+    <string name="nav_stream">STREAM</string>
+    <string name="nav_notes">NOTES</string>
+    <string name="nav_create">CREATE</string>
+    <string name="nav_chat">CHAT</string>
+    <string name="nav_circle">CIRCLE</string>
+    <string name="settings_title">Settings</string>
+    <string name="privacy_title">Privacy &amp; Security</string>
+</resources>

@@ -1,0 +1,82 @@
+name: Android CI & APK Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build & Verify Android Debug APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: gradle
+
+      - name: Validate Gradle Wrapper / Tooling
+        run: |
+          echo "Checking Android project structure..."
+          test -f "settings.gradle.kts" || (echo "settings.gradle.kts missing" && exit 1)
+          test -f "build.gradle.kts" || (echo "build.gradle.kts missing" && exit 1)
+          test -f "app/build.gradle.kts" || (echo "app/build.gradle.kts missing" && exit 1)
+          test -f "app/src/main/AndroidManifest.xml" || (echo "AndroidManifest.xml missing" && exit 1)
+          echo "Project structure verified successfully."
+
+      - name: Run Unit Tests
+        run: gradle :app:testDebugUnitTest --no-daemon --stacktrace
+
+      - name: Assemble Debug APK
+        run: gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Verify & Checksum APK
+        id: verify_apk
+        run: |
+          APK_PATH=$(find app/build/outputs/apk/debug -name "*.apk" | head -n 1)
+          if [ -z "$APK_PATH" ] || [ ! -f "$APK_PATH" ]; then
+            echo "ERROR: Debug APK not found in app/build/outputs/apk/debug"
+            exit 1
+          fi
+          
+          FILE_SIZE=$(stat -c%s "$APK_PATH")
+          if [ "$FILE_SIZE" -le 1000 ]; then
+            echo "ERROR: Debug APK is empty or too small ($FILE_SIZE bytes)"
+            exit 1
+          fi
+          
+          echo "APK Found: $APK_PATH ($FILE_SIZE bytes)"
+          CHECKSUM=$(sha256sum "$APK_PATH" | awk '{print $1}')
+          echo "SHA256: $CHECKSUM"
+          echo "apk_path=$APK_PATH" >> $GITHUB_OUTPUT
+          echo "apk_checksum=$CHECKSUM" >> $GITHUB_OUTPUT
+
+      - name: Upload Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: notecircle-debug-apk
+          path: ${{ steps.verify_apk.outputs.apk_path }}
+          retention-days: 14
+
+      - name: Upload Test Report & Build Diagnostics on Failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-failure-diagnostics
+          path: |
+            app/build/reports/
+            app/build/test-results/
+          retention-days: 7
