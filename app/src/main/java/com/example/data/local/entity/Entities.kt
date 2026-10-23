@@ -8,6 +8,7 @@ data class UserEntity(
     @PrimaryKey val userId: String,
     val email: String,
     val username: String,
+    val password: String = "password123",
     val displayName: String,
     val bio: String,
     val avatarColorHex: String = "#FFE2E8",

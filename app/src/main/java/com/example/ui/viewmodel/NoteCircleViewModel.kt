@@ -98,16 +98,37 @@ data class NoteCircleUiState(
     // AI Assistant state
     val aiPromptInput: String = "",
     val aiGeneratedResult: String? = null,
-    val isAiProcessing: Boolean = false
+    val isAiProcessing: Boolean = false,
+    // Tag / Category filter for notes
+    val selectedTagFilter: String? = null,
+    // Supabase Cloud Sync state
+    val cloudSyncState: com.example.data.supabase.CloudSyncState = com.example.data.supabase.CloudSyncState.IDLE
 )
 
 class NoteCircleViewModel(application: Application) : AndroidViewModel(application) {
 
     private val db = NoteCircleDatabase.getDatabase(application)
     private val repository = NoteCircleRepository(db)
+    private val themePreferences = com.example.data.local.ThemePreferences(application)
+    private val supabaseSyncManager = com.example.data.supabase.SupabaseSyncManager()
 
     private val _uiState = MutableStateFlow(NoteCircleUiState())
     val uiState: StateFlow<NoteCircleUiState> = _uiState.asStateFlow()
+
+    init {
+        // Collect saved theme from DataStore preferences
+        viewModelScope.launch {
+            themePreferences.isDarkTheme.collect { isDark ->
+                _uiState.update { it.copy(isDarkTheme = isDark) }
+            }
+        }
+        // Collect Supabase cloud sync status
+        viewModelScope.launch {
+            supabaseSyncManager.syncState.collect { syncState ->
+                _uiState.update { it.copy(cloudSyncState = syncState) }
+            }
+        }
+    }
 
     val currentUser: StateFlow<UserEntity?> = repository.currentUser
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -207,15 +228,44 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // Auth & Registration
+    fun login(
+        identifier: String,
+        password: String,
+        onResult: (Boolean, String?) -> Unit
+    ) {
+        viewModelScope.launch {
+            try {
+                val user = repository.login(identifier, password)
+                if (user != null) {
+                    onResult(true, null)
+                } else {
+                    onResult(false, "Invalid username/email or password. Please verify your credentials or create a new account.")
+                }
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Login failed. Please try again.")
+            }
+        }
+    }
+
     fun register(
         email: String,
         username: String,
         displayName: String,
         bio: String,
-        avatarColorHex: String
+        avatarColorHex: String,
+        password: String = "password123",
+        onResult: (Boolean, String?) -> Unit = { _, _ -> }
     ) {
         viewModelScope.launch {
-            repository.registerUser(email, username, displayName, bio, avatarColorHex)
+            try {
+                val user = repository.registerUser(email, username, displayName, bio, avatarColorHex, password)
+                supabaseSyncManager.syncUserToSupabase(user)
+                onResult(true, null)
+            } catch (e: IllegalArgumentException) {
+                onResult(false, e.message ?: "An account with this email already exists.")
+            } catch (e: Exception) {
+                onResult(false, e.localizedMessage ?: "Registration failed. Please try again.")
+            }
         }
     }
 
@@ -297,6 +347,7 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
     fun setVaultPin(newPin: String) {
         viewModelScope.launch {
             repository.setVaultSecurity(newPin, false)
+            _uiState.update { it.copy(isVaultUnlocked = true, vaultErrorMessage = null, vaultPinInput = "") }
         }
     }
 
@@ -418,8 +469,21 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
         _uiState.update { it.copy(selectedNoteTab = tab) }
     }
 
+    fun setTagFilter(tag: String?) {
+        _uiState.update { it.copy(selectedTagFilter = tag) }
+    }
+
     fun toggleDarkTheme() {
-        _uiState.update { it.copy(isDarkTheme = !it.isDarkTheme) }
+        val next = !_uiState.value.isDarkTheme
+        viewModelScope.launch {
+            themePreferences.setDarkTheme(next)
+        }
+    }
+
+    fun setDarkTheme(isDark: Boolean) {
+        viewModelScope.launch {
+            themePreferences.setDarkTheme(isDark)
+        }
     }
 
     // Notes Actions
@@ -443,7 +507,7 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
         audioTranscript: String? = null
     ) {
         viewModelScope.launch {
-            repository.createNote(
+            val note = repository.createNote(
                 content = content,
                 categoryEmoji = categoryEmoji,
                 categoryName = categoryName,
@@ -462,6 +526,9 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
                 audioDurationSec = audioDurationSec,
                 audioTranscript = audioTranscript
             )
+            if (note != null) {
+                supabaseSyncManager.syncNoteToSupabase(note)
+            }
             repository.incrementGrowthFlower()
             _uiState.update { it.copy(isCreateNoteOpen = false) }
         }
@@ -513,7 +580,8 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
     // Circles Actions
     fun createCircle(name: String, description: String, emoji: String, colorHex: String) {
         viewModelScope.launch {
-            repository.createCircle(name, description, emoji, colorHex)
+            val circle = repository.createCircle(name, description, emoji, colorHex)
+            supabaseSyncManager.syncCircleToSupabase(circle)
             _uiState.update { it.copy(isAddCircleOpen = false) }
         }
     }
@@ -615,6 +683,13 @@ class NoteCircleViewModel(application: Application) : AndroidViewModel(applicati
     fun logout() {
         viewModelScope.launch {
             repository.logout()
+            _uiState.update { NoteCircleUiState() }
+        }
+    }
+
+    fun deleteAccount() {
+        viewModelScope.launch {
+            repository.deleteAccount()
             _uiState.update { NoteCircleUiState() }
         }
     }

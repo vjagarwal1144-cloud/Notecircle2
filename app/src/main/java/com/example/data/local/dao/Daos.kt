@@ -42,6 +42,18 @@ interface UserDao {
     @Query("SELECT * FROM users WHERE username = :username LIMIT 1")
     suspend fun getUserByUsername(username: String): UserEntity?
 
+    @Query("SELECT * FROM users WHERE (email = :identifier OR username = :identifier) AND password = :password LIMIT 1")
+    suspend fun login(identifier: String, password: String): UserEntity?
+
+    @Query("SELECT * FROM users WHERE email = :email LIMIT 1")
+    suspend fun getUserByEmail(email: String): UserEntity?
+
+    @Query("UPDATE users SET isCurrentUser = 1 WHERE userId = :userId")
+    suspend fun setCurrentUser(userId: String)
+
+    @Query("UPDATE users SET isCurrentUser = 0")
+    suspend fun clearCurrentUser()
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertUser(user: UserEntity)
 

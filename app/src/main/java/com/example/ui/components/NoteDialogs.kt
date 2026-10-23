@@ -297,12 +297,14 @@ fun CreateNoteSheet(
         expiry: NoteExpiry,
         isPinned: Boolean,
         isMemoryCapsule: Boolean,
-        unlockDate: Long?
+        unlockDate: Long?,
+        tags: String
     ) -> Unit,
     onDismiss: () -> Unit
 ) {
     var content by remember { mutableStateOf("") }
     var selectedCategory by remember { mutableStateOf(CategoryOption("Thought", "💭")) }
+    var selectedTag by remember { mutableStateOf("Personal") }
     var selectedAudience by remember { mutableStateOf(AudienceType.EVERYONE_IN_CIRCLE) }
     var selectedCircle by remember { mutableStateOf<CircleEntity?>(circles.firstOrNull()) }
     var selectedExpiry by remember { mutableStateOf(NoteExpiry.ONE_DAY) }
@@ -422,6 +424,54 @@ fun CreateNoteSheet(
                                 fontSize = 11.sp,
                                 fontFamily = OutfitFontFamily,
                                 fontWeight = if (isSelected) FontWeight.Black else FontWeight.Bold,
+                                color = PrimaryInk
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                // Tag / Label Selector ('Personal', 'Work', 'Ideas', 'Study', 'Travel', 'Gratitude')
+                Text(
+                    text = "NOTE LABEL / TAG",
+                    fontSize = 10.5.sp,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Black,
+                    color = PrimaryInk,
+                    letterSpacing = 0.5.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val noteTags = listOf(
+                        "Personal" to "🌸",
+                        "Work" to "💼",
+                        "Ideas" to "💡",
+                        "Study" to "📚",
+                        "Travel" to "✈️",
+                        "Gratitude" to "✨"
+                    )
+                    noteTags.forEach { (tag, emoji) ->
+                        val isChosen = selectedTag == tag
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isChosen) PastelMint else Color(0xFFF2EEE4))
+                                .border(1.4.dp, BorderDark, RoundedCornerShape(10.dp))
+                                .clickable { selectedTag = tag }
+                                .padding(horizontal = 9.dp, vertical = 5.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(emoji, fontSize = 12.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                tag,
+                                fontSize = 11.sp,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = if (isChosen) FontWeight.Black else FontWeight.Bold,
                                 color = PrimaryInk
                             )
                         }
@@ -658,7 +708,8 @@ fun CreateNoteSheet(
                                 selectedExpiry,
                                 isPinned,
                                 isMemoryCapsule,
-                                unlockDate
+                                unlockDate,
+                                selectedTag
                             )
                         }
                     },

@@ -65,14 +65,16 @@ fun NotesScreen(
     currentUser: UserEntity?,
     allNotes: List<NoteEntity>,
     selectedTab: NoteSubTab,
+    selectedTag: String?,
     onTabSelected: (NoteSubTab) -> Unit,
+    onTagSelected: (String?) -> Unit,
     onTogglePin: (noteId: String, currentPinned: Boolean) -> Unit,
     onDeleteNote: (noteId: String) -> Unit,
     onCreateNoteClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val myNotes = allNotes.filter { it.authorId == currentUser?.userId }
-    val displayNotes = when (selectedTab) {
+    val tabFilteredNotes = when (selectedTab) {
         NoteSubTab.ACTIVE -> myNotes.filter { !it.isDraft && !it.isMemoryCapsule && (it.expiresAt == null || it.expiresAt > System.currentTimeMillis()) }
         NoteSubTab.PINNED -> myNotes.filter { it.isPinned }
         NoteSubTab.CAPSULES -> myNotes.filter { it.isMemoryCapsule }
@@ -80,6 +82,16 @@ fun NotesScreen(
         NoteSubTab.GRATITUDE -> myNotes.filter { it.categoryName == "Gratitude" || it.isRitual }
         NoteSubTab.DRAFTS -> myNotes.filter { it.isDraft }
         NoteSubTab.HISTORY -> myNotes.filter { it.expiresAt != null && it.expiresAt <= System.currentTimeMillis() }
+    }
+
+    // Apply Tag filter: 'All', 'Personal', 'Work', 'Ideas', 'Study', 'Travel', 'Gratitude'
+    val displayNotes = if (selectedTag == null || selectedTag == "All") {
+        tabFilteredNotes
+    } else {
+        tabFilteredNotes.filter {
+            it.tags.contains(selectedTag, ignoreCase = true) ||
+            it.categoryName.equals(selectedTag, ignoreCase = true)
+        }
     }
 
     LazyColumn(
@@ -163,6 +175,50 @@ fun NotesScreen(
             }
         }
 
+        // Tag / Label Filter Row: 'All', 'Personal', 'Work', 'Ideas', 'Study', 'Travel', 'Gratitude'
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text(
+                    text = "FILTER BY LABEL & CATEGORY",
+                    fontSize = 10.sp,
+                    fontFamily = OutfitFontFamily,
+                    fontWeight = FontWeight.Black,
+                    color = PrimaryInk.copy(alpha = 0.6f)
+                )
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    val labelTags = listOf(
+                        "All" to "🏷️",
+                        "Personal" to "🌸",
+                        "Work" to "💼",
+                        "Ideas" to "💡",
+                        "Study" to "📚",
+                        "Travel" to "✈️",
+                        "Gratitude" to "✨"
+                    )
+                    items(labelTags) { (tag, emoji) ->
+                        val isChosen = (selectedTag == null && tag == "All") || selectedTag == tag
+                        Box(
+                            modifier = Modifier
+                                .testTag("note_tag_filter_$tag")
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(if (isChosen) PastelPinkLight else MaterialTheme.colorScheme.surface)
+                                .border(1.4.dp, BorderDark, RoundedCornerShape(10.dp))
+                                .clickable { onTagSelected(if (tag == "All") null else tag) }
+                                .padding(horizontal = 11.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = "$emoji $tag",
+                                fontSize = 11.sp,
+                                fontFamily = OutfitFontFamily,
+                                fontWeight = if (isChosen) FontWeight.Black else FontWeight.Bold,
+                                color = PrimaryInk
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
         // Notes List or Empty State
         if (displayNotes.isEmpty()) {
             item {
@@ -182,7 +238,7 @@ fun NotesScreen(
                         Text(text = if (selectedTab == NoteSubTab.CAPSULES) "🎁" else "📝", fontSize = 42.sp)
                         Spacer(modifier = Modifier.height(10.dp))
                         Text(
-                            text = "No ${selectedTab.name.lowercase()} items",
+                            text = if (selectedTag != null) "No notes tagged '$selectedTag'" else "No ${selectedTab.name.lowercase()} items",
                             fontSize = 16.sp,
                             fontFamily = OutfitFontFamily,
                             fontWeight = FontWeight.Black,
@@ -190,7 +246,8 @@ fun NotesScreen(
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (selectedTab == NoteSubTab.CAPSULES) "Seal a meaningful moment or letter to be opened in the future."
+                            text = if (selectedTag != null) "Try writing a note with the '$selectedTag' tag or choose 'All'."
+                            else if (selectedTab == NoteSubTab.CAPSULES) "Seal a meaningful moment or letter to be opened in the future."
                             else "Jot down a quick thought or plan for your trusted circle.",
                             fontSize = 12.sp,
                             color = PrimaryInk.copy(alpha = 0.7f),
@@ -219,19 +276,31 @@ fun NotesScreen(
 private fun TemplatePill(
     title: String,
     subtitle: String,
-    backgroundColor: Color,
+    color: Color,
     onClick: () -> Unit
 ) {
-    Column(
+    Box(
         modifier = Modifier
             .clip(RoundedCornerShape(12.dp))
-            .background(backgroundColor)
-            .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
+            .background(color)
+            .border(1.6.dp, BorderDark, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 7.dp)
+            .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(text = title, fontSize = 12.5.sp, fontFamily = OutfitFontFamily, fontWeight = FontWeight.Black, color = PrimaryInk)
-        Text(text = subtitle, fontSize = 9.5.sp, color = PrimaryInk.copy(alpha = 0.65f))
+        Column {
+            Text(
+                text = title,
+                fontSize = 12.sp,
+                fontFamily = OutfitFontFamily,
+                fontWeight = FontWeight.Black,
+                color = PrimaryInk
+            )
+            Text(
+                text = subtitle,
+                fontSize = 9.5.sp,
+                color = PrimaryInk.copy(alpha = 0.7f)
+            )
+        }
     }
 }
 
@@ -266,10 +335,18 @@ private fun MyNoteItemCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                NeoBadge(
-                    text = "${note.categoryEmoji} ${note.categoryName}",
-                    backgroundColor = PastelPeachLight
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    NeoBadge(
+                        text = "${note.categoryEmoji} ${note.categoryName}",
+                        backgroundColor = PastelPeachLight
+                    )
+                    if (note.tags.isNotBlank()) {
+                        NeoBadge(
+                            text = "#${note.tags}",
+                            backgroundColor = PastelPinkLight
+                        )
+                    }
+                }
 
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     IconButton(

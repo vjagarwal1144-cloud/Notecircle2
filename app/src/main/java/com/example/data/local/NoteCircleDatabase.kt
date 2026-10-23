@@ -44,7 +44,7 @@ import com.example.data.local.entity.UserEntity
         FriendshipQuestEntity::class,
         StudyFlashcardEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class NoteCircleDatabase : RoomDatabase() {

@@ -42,19 +42,56 @@ class NoteCircleRepository(private val db: NoteCircleDatabase) {
     val connections: Flow<List<UserEntity>> = userDao.getConnections()
     val pendingRequests: Flow<List<UserEntity>> = userDao.getPendingRequests()
 
+    suspend fun getUserByEmail(email: String): UserEntity? {
+        return userDao.getUserByEmail(email.trim().lowercase())
+    }
+
+    suspend fun login(identifier: String, password: String): UserEntity? {
+        val cleanIdentifier = identifier.trim()
+        val usernameIdentifier = if (cleanIdentifier.startsWith("@")) cleanIdentifier.lowercase() else "@${cleanIdentifier.lowercase()}"
+        val emailIdentifier = cleanIdentifier.lowercase()
+
+        // Search by email first, then username
+        var user = userDao.login(emailIdentifier, password)
+        if (user == null) {
+            user = userDao.login(cleanIdentifier, password)
+        }
+        if (user == null) {
+            user = userDao.login(usernameIdentifier, password)
+        }
+
+        if (user != null) {
+            userDao.clearCurrentUser()
+            userDao.setCurrentUser(user.userId)
+            return user.copy(isCurrentUser = true)
+        }
+        return null
+    }
+
     suspend fun registerUser(
         email: String,
         username: String,
         displayName: String,
         bio: String,
-        avatarColorHex: String
+        avatarColorHex: String,
+        password: String = "password123"
     ): UserEntity {
+        val cleanEmail = email.trim().lowercase()
+        val existing = userDao.getUserByEmail(cleanEmail)
+        if (existing != null) {
+            throw IllegalArgumentException("An account already exists for this email ($cleanEmail). Please log in with your password!")
+        }
+
+        // Clear any previous active user session
+        userDao.clearCurrentUser()
+
         val cleanUsername = if (username.startsWith("@")) username.lowercase() else "@${username.lowercase()}"
         val userId = UUID.randomUUID().toString()
         val user = UserEntity(
             userId = userId,
-            email = email.trim(),
+            email = cleanEmail,
             username = cleanUsername.trim(),
+            password = password,
             displayName = displayName.trim(),
             bio = bio.trim(),
             avatarColorHex = avatarColorHex,
@@ -235,7 +272,7 @@ class NoteCircleRepository(private val db: NoteCircleDatabase) {
     // Circles
     val allCircles: Flow<List<CircleEntity>> = circleDao.getAllCircles()
 
-    suspend fun createCircle(name: String, description: String, emoji: String, colorHex: String) {
+    suspend fun createCircle(name: String, description: String, emoji: String, colorHex: String): CircleEntity {
         val circle = CircleEntity(
             circleId = UUID.randomUUID().toString(),
             name = name.trim(),
@@ -245,6 +282,7 @@ class NoteCircleRepository(private val db: NoteCircleDatabase) {
             memberCount = 1
         )
         circleDao.insertCircle(circle)
+        return circle
     }
 
     suspend fun deleteCircle(circleId: String) {
@@ -533,6 +571,10 @@ class NoteCircleRepository(private val db: NoteCircleDatabase) {
     }
 
     suspend fun logout() {
+        userDao.clearCurrentUser()
+    }
+
+    suspend fun deleteAccount() {
         val current = userDao.getCurrentUserSync()
         if (current != null) {
             userDao.deleteUser(current.userId)

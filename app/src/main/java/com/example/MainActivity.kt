@@ -72,10 +72,36 @@ class MainActivity : ComponentActivity() {
 
             MyApplicationTheme(darkTheme = uiState.isDarkTheme) {
                 if (currentUser == null) {
-                    // Onboarding / Privacy-First Registration Flow
+                    // Onboarding / Privacy-First Registration & Login Flow
                     AuthScreen(
-                        onRegister = { email, username, displayName, bio, avatarColorHex ->
-                            viewModel.register(email, username, displayName, bio, avatarColorHex)
+                        onLogin = { identifier, password, onError ->
+                            viewModel.login(identifier, password) { success, errMsg ->
+                                if (!success && errMsg != null) {
+                                    onError(errMsg)
+                                }
+                            }
+                        },
+                        onRegister = { email, username, displayName, bio, avatarColorHex, password, onError ->
+                            viewModel.register(email, username, displayName, bio, avatarColorHex, password) { success, errMsg ->
+                                if (!success && errMsg != null) {
+                                    onError(errMsg)
+                                }
+                            }
+                        },
+                        onQuickDemo = {
+                            viewModel.login("maya@notecircle.app", "password123") { success, _ ->
+                                if (!success) {
+                                    // If demo user does not exist yet, register them
+                                    viewModel.register(
+                                        email = "maya@notecircle.app",
+                                        username = "maya",
+                                        displayName = "Maya Lin",
+                                        bio = "Studying architecture & coffee enthusiast ☕",
+                                        avatarColorHex = "#FFBF00",
+                                        password = "password123"
+                                    )
+                                }
+                            }
                         }
                     )
                 } else {
@@ -123,6 +149,13 @@ class MainActivity : ComponentActivity() {
                                             viewModel.updateProfile(name, bio, color, emoji)
                                         },
                                         onLogout = { viewModel.logout() },
+                                        onDeleteAccount = { viewModel.deleteAccount() },
+                                        onOpenStudio = { viewModel.openSubScreen(SubScreen.STUDIO) },
+                                        onOpenVault = { viewModel.openSubScreen(SubScreen.VAULT) },
+                                        onOpenCommandCenter = { viewModel.openSubScreen(SubScreen.COMMAND_CENTER) },
+                                        onOpenStudy = { viewModel.openSubScreen(SubScreen.STUDY) },
+                                        onOpenAi = { viewModel.openSubScreen(SubScreen.AI_ASSIST) },
+                                        onOpenFocusRoom = { viewModel.openFocusRoom() },
                                         onBack = { viewModel.navigateBack() }
                                     )
                                 }
@@ -170,20 +203,24 @@ class MainActivity : ComponentActivity() {
                                 }
                                 SubScreen.VAULT -> {
                                     PrivateVaultScreen(
+                                        currentUser = currentUser,
                                         isUnlocked = uiState.isVaultUnlocked,
                                         vaultNotes = vaultNotes,
                                         errorMessage = uiState.vaultErrorMessage,
                                         onUnlock = { viewModel.unlockVault(it) },
+                                        onSetPin = { viewModel.setVaultPin(it) },
                                         onLock = { viewModel.lockVault() },
-                                        onCreateVaultNote = { content ->
+                                        onCreateVaultNote = { content, tag ->
                                             viewModel.createNote(
                                                 content = content,
                                                 categoryEmoji = "🔒",
                                                 categoryName = "Vault Note",
                                                 audienceType = AudienceType.ONLY_ME,
+                                                tags = tag,
                                                 isVaultProtected = true
                                             )
                                         },
+                                        onDeleteVaultNote = { viewModel.deleteNote(it) },
                                         onBack = { viewModel.navigateBack() }
                                     )
                                 }
@@ -247,6 +284,9 @@ class MainActivity : ComponentActivity() {
                                                 onOpenAiCompanion = { viewModel.openSubScreen(SubScreen.AI_ASSIST) },
                                                 onOpenStudyWorkspace = { viewModel.openSubScreen(SubScreen.STUDY) },
                                                 onOpenVault = { viewModel.openSubScreen(SubScreen.VAULT) },
+                                                onOpenStudio = { viewModel.openSubScreen(SubScreen.STUDIO) },
+                                                onOpenFocusRoom = { viewModel.openFocusRoom() },
+                                                onOpenSettings = { viewModel.openSubScreen(SubScreen.SETTINGS) },
                                                 gratitudeInput = uiState.gratitudeInput,
                                                 onGratitudeInputChanged = { viewModel.updateGratitudeInput(it) },
                                                 onPostGratitude = { viewModel.postGratitudeRitual() },
@@ -267,7 +307,9 @@ class MainActivity : ComponentActivity() {
                                                 currentUser = currentUser,
                                                 allNotes = activeNotes,
                                                 selectedTab = uiState.selectedNoteTab,
+                                                selectedTag = uiState.selectedTagFilter,
                                                 onTabSelected = { viewModel.setNoteTab(it) },
+                                                onTagSelected = { viewModel.setTagFilter(it) },
                                                 onTogglePin = { noteId, pinned -> viewModel.togglePinNote(noteId, pinned) },
                                                 onDeleteNote = { noteId -> viewModel.deleteNote(noteId) },
                                                 onCreateNoteClick = { viewModel.showCreateNoteDialog(true) }
@@ -342,7 +384,7 @@ class MainActivity : ComponentActivity() {
                         if (uiState.isCreateNoteOpen) {
                             CreateNoteSheet(
                                 circles = allCircles,
-                                onPostNote = { content, catEmoji, catName, audience, circleId, circleName, expiry, pinned, isCapsule, unlockDate ->
+                                onPostNote = { content, catEmoji, catName, audience, circleId, circleName, expiry, pinned, isCapsule, unlockDate, tags ->
                                     viewModel.createNote(
                                         content = content,
                                         categoryEmoji = catEmoji,
@@ -353,7 +395,8 @@ class MainActivity : ComponentActivity() {
                                         expiry = expiry,
                                         isPinned = pinned,
                                         isMemoryCapsule = isCapsule,
-                                        unlockDate = unlockDate
+                                        unlockDate = unlockDate,
+                                        tags = tags
                                     )
                                 },
                                 onDismiss = { viewModel.showCreateNoteDialog(false) }

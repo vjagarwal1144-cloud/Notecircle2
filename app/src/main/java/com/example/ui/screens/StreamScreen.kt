@@ -90,6 +90,9 @@ fun StreamScreen(
     onOpenAiCompanion: () -> Unit,
     onOpenStudyWorkspace: () -> Unit,
     onOpenVault: () -> Unit,
+    onOpenStudio: () -> Unit = {},
+    onOpenFocusRoom: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     gratitudeInput: String,
     onGratitudeInputChanged: (String) -> Unit,
     onPostGratitude: () -> Unit,
@@ -121,7 +124,7 @@ fun StreamScreen(
             contentPadding = PaddingValues(top = 8.dp, bottom = 90.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
-            // Quick Feature Hubs: Command Center, Vault, Study, AI Companion
+            // Quick Feature Hubs: Studio, Command Center, Vault, Study, AI Companion, Focus Room, Settings
             item {
                 LazyRow(
                     modifier = Modifier.fillMaxWidth(),
@@ -130,6 +133,23 @@ fun StreamScreen(
                     item {
                         Row(
                             modifier = Modifier
+                                .testTag("stream_quick_studio")
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PastelLavenderLight)
+                                .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
+                                .clickable { onOpenStudio() }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("🎨", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Studio", fontSize = 11.sp, fontFamily = OutfitFontFamily, fontWeight = FontWeight.Black, color = PrimaryInk)
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .testTag("stream_quick_command")
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PastelPeachLight)
                                 .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
@@ -145,6 +165,7 @@ fun StreamScreen(
                     item {
                         Row(
                             modifier = Modifier
+                                .testTag("stream_quick_vault")
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PastelMintLight)
                                 .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
@@ -160,8 +181,9 @@ fun StreamScreen(
                     item {
                         Row(
                             modifier = Modifier
+                                .testTag("stream_quick_study")
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(PastelLavenderLight)
+                                .background(PastelLavender)
                                 .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
                                 .clickable { onOpenStudyWorkspace() }
                                 .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -175,6 +197,7 @@ fun StreamScreen(
                     item {
                         Row(
                             modifier = Modifier
+                                .testTag("stream_quick_ai")
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(PastelButterYellow)
                                 .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
@@ -185,6 +208,38 @@ fun StreamScreen(
                             Text("✨", fontSize = 13.sp)
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("AI Companion", fontSize = 11.sp, fontFamily = OutfitFontFamily, fontWeight = FontWeight.Black, color = PrimaryInk)
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .testTag("stream_quick_focus")
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PastelMint)
+                                .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
+                                .clickable { onOpenFocusRoom() }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("☕", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Focus Room", fontSize = 11.sp, fontFamily = OutfitFontFamily, fontWeight = FontWeight.Black, color = PrimaryInk)
+                        }
+                    }
+                    item {
+                        Row(
+                            modifier = Modifier
+                                .testTag("stream_quick_settings")
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFF3EFE6))
+                                .border(1.4.dp, BorderDark, RoundedCornerShape(12.dp))
+                                .clickable { onOpenSettings() }
+                                .padding(horizontal = 10.dp, vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("⚙️", fontSize = 13.sp)
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Settings", fontSize = 11.sp, fontFamily = OutfitFontFamily, fontWeight = FontWeight.Black, color = PrimaryInk)
                         }
                     }
                 }
