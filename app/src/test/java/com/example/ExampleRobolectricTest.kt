@@ -9,7 +9,9 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36])
+// Robolectric 4.16.1 does not reliably support the project's API 36.1 preview target.
+// Test on stable API 35 while the APK continues to compile against API 36.1.
+@Config(sdk = [35])
 class ExampleRobolectricTest {
 
   @Test
